@@ -5,6 +5,56 @@ Claude に何をやらせたか / どこまで進んだかの記録。
 
 ---
 
+## 2026-09-05 スコープの確定（アプリ削除をやめ、捨て台詞を追加）
+
+**ブランチ**: `fujii`（未コミット）
+
+設計を確定させた。**コードの実装はまだしていない**（設計ファイル・フォルダ・依存のみ）。
+
+### 方針の変更点
+
+| 変更 | 内容 | 理由 |
+| --- | --- | --- |
+| アプリ削除機能を**廃止** | `app_uninstall` を削除 | OS 的に黙って消せず、体験が成立しない |
+| 写真は**端末を触らない** | アプリ内のコピーだけを壊す | 取り返しのつかない削除を中心に置かない。権限も不要になる |
+| メールは**ゴミ箱移動まで** | `messages.trash` を呼ぶだけ | 完全削除は制限付きスコープで OAuth 審査が必要 |
+| **捨て台詞**を追加 | `epitaph` 機能を新設 | 消したものの中身を残さず、言葉だけ振り返れる |
+| photo_manager → **image_picker** | OS 標準ピッカーに変更 | 写真ライブラリ全体の権限を要求しないため |
+| ネイティブコード**不要**に | MethodChannel / Kotlin を書かない | アプリ削除をやめたので必要がなくなった |
+
+### やったこと
+
+- `CLAUDE.md` … アプリ概要 / 技術スタック / プラットフォーム方針 / 共通の型 /
+  フォルダ規約を差し替え、新たに「プロダクト方針」の節を追加
+- `README.md` … 機能一覧（写真 / Gmail / 捨て台詞）、必要な権限、
+  フォルダ構成を更新
+- `lib/features/app_uninstall/` を削除（`test/` 側は元々存在しなかった）
+- `lib/features/epitaph/{repository,provider,ui}/` を新設
+- `flutter pub remove photo_manager` / `flutter pub add image_picker`
+
+### 要対応：ドキュメントとコードが食い違っている
+
+`lib/core/model/trash_item.dart` は前回作ったままで、新しい設計と合っていない。
+「コードの実装はしない」指示だったので**あえて直していない**。
+
+| 項目 | コードの現状 | CLAUDE.md の新設計 |
+| --- | --- | --- |
+| enum 名 | `TrashType` | `TrashItemType` |
+| 値 | `photo` / `mail` / `app` / `shared` | `photo` / `mail` / `text` |
+
+`app` は機能ごと消えたので確実に不要。`shared` は `text` に相当する。
+次にコードを触るときに合わせること。
+
+### 積み残し
+
+- [ ] `TrashItemType` への改名と値の整理（上記）
+- [ ] `Epitaph` 型を `lib/core/model/` に追加
+- [ ] `core/db/database.dart`（Drift のテーブル定義）。TrashItem と Epitaph の2テーブル
+- [ ] `web/sqlite3.wasm` と `web/drift_worker.js` の配置
+- [ ] Gmail の OAuth クライアント設定（google-services.json は**コミット禁止**）
+
+---
+
 ## 2026-09-05 構成の見直し（レビュー指摘 A〜F の反映）
 
 **ブランチ**: `fujii`（PR #1 マージ後の main から作成）
