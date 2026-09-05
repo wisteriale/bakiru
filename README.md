@@ -2,19 +2,37 @@
 
 > 消すのは、気持ちいい。
 
-お祈りメール・写真・使わなくなったアプリなどをアプリ内のごみ箱に放り込み、
-完全消去するときに「叩き割る」「燃やす」といった演出を再生する、破壊エンタメ型のごみ箱アプリ。
+お祈りメールや消したい写真をアプリ内のごみ箱に放り込み、
+「叩き割る」「燃やす」といった演出で破壊する、破壊エンタメ型のごみ箱アプリ。
 
 Flutter 製で、Android / iOS / Web で動く。
+
+## 機能
+
+| 機能 | 内容 |
+| --- | --- |
+| **写真**（演出のみ） | OS 標準ピッカーか共有シートで受け取った画像をアプリ内にコピーし、演出で壊す。**端末の写真は残る** |
+| **Gmail**（演出＋ゴミ箱移動） | Gmail からメールを取り込み、演出のあと Gmail のゴミ箱へ移動する。完全削除はしない |
+| **捨て台詞** | 破壊の直前に一言残せる。中身は残さず、言葉だけを保存して振り返れる |
+
+## 必要な権限
+
+- **写真ライブラリへのアクセス権限は不要。**
+  OS 標準ピッカーと共有シートしか使わないので、ユーザーが選んだものだけが渡ってくる。
+- 必要なのは **Gmail の OAuth のみ**。スコープは `gmail.readonly` と `gmail.modify` の2つだけで、
+  メールの完全削除に必要な権限は要求しない。
 
 ## 技術スタック
 
 - Flutter / Dart
 - 状態管理: [flutter_riverpod](https://pub.dev/packages/flutter_riverpod)
 - ローカル DB: [drift](https://pub.dev/packages/drift)
-- ネイティブ連携: photo_manager（写真）、google_sign_in + googleapis（メール）、receive_sharing_intent（共有受け取り）
+- 写真の取り込み: [image_picker](https://pub.dev/packages/image_picker)（OS 標準ピッカー）、
+  [receive_sharing_intent](https://pub.dev/packages/receive_sharing_intent)（共有シート）
+- Gmail 連携: [google_sign_in](https://pub.dev/packages/google_sign_in) + [googleapis](https://pub.dev/packages/googleapis)
 - 演出: [rive](https://pub.dev/packages/rive)
-- Android のアプリ削除のみ MethodChannel 経由で自作 Kotlin を呼び出す
+
+ネイティブコード（MethodChannel / Kotlin / Swift）は書かない。
 
 ## 環境構築
 
@@ -54,7 +72,8 @@ Drift は Web だと SQLite を WebAssembly で動かすため、`web/` に次�
 
 ### OS 連携を確認したいとき
 
-写真・共有・アプリ削除などは Web では動かないので、エミュレータ／実機で確認する。
+Gmail 連携は Chrome でも動くが、**共有シートは Web では動かない**ので
+エミュレータ／実機で確認する。
 
 ```bash
 flutter run -d <android-device-id>   # Android エミュレータ
@@ -82,10 +101,10 @@ lib/
       provider/           Destroyer を振り分けて実行する
       ui/burn/            燃やす
       ui/shatter/         叩き割る
-    photo/              写真の取り込み
-    mail/               メール（お祈りメール）の取り込み
-    app_uninstall/      アプリの削除
-    share_intake/       他アプリからの共有受け取り
+    photo/              写真の取り込み（アプリ内へのコピー）
+    mail/               Gmail 連携（お祈りメールの取り込み）
+    share_intake/       共有シートからの受け取り
+    epitaph/            捨て台詞の保存と振り返り
 test/
   features/           lib と同じ構造でテストを置く
 ```
