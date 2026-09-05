@@ -1,7 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() {
-  runApp(const MyApp());
+  // ProviderScope が Riverpod の入れ物。これがないと ref が使えない。
+  //
+  // Web で動かない機能（写真・共有・アプリ削除）の偽実装への差し替えは、
+  // ここの overrides だけで行う。こうしておくと features 配下のコードは
+  // kIsWeb を一切知らずに済み、「今どっちの実装が動いているか」を
+  // 探すときもこの1か所を見ればよくなる。
+  //
+  //   overrides: [
+  //     photoRepositoryProvider.overrideWithValue(
+  //       kIsWeb ? FakePhotoRepository() : RealPhotoRepository(),
+  //     ),
+  //   ],
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {

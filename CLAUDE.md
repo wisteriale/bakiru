@@ -15,7 +15,7 @@
 | --- | --- |
 | フレームワーク | Flutter / Dart |
 | 状態管理 | flutter_riverpod |
-| ローカル DB | Drift（+ sqlite3_flutter_libs） |
+| ローカル DB | Drift（SQLite 本体は `sqlite3` 3.x が同梱するので追加の依存は不要） |
 | ネイティブ連携 | photo_manager（写真）、google_sign_in + googleapis（メール）、receive_sharing_intent（共有受け取り） |
 | Android のアプリ削除 | MethodChannel + 自作 Kotlin コード |
 | 演出 | rive |
@@ -31,36 +31,64 @@ Android のアプリ削除だけは既存プラグインで賄えないため、
 - Web で動かない機能は `abstract class` の裏に隠し、`kIsWeb` で偽実装（フェイク）に差し替える。
   - 例: `abstract class PhotoRepository` を用意し、Web では固定のダミー写真を返す実装を注入する。
   - これにより「Web で UI を作る → 実機で本物の実装に差し替える」が同じコードのまま成立する。
+- **`kIsWeb` を書いてよいのは `main.dart` の `ProviderScope.overrides` だけ。**
+  features 配下のコードは自分がどのプラットフォームで動いているかを知らなくてよい。
+  分岐が散らばると「今どっちの実装が動いているか」を追えなくなるため。
+- **DB だけは例外で `kIsWeb` を使わない。** Web は WebAssembly、ネイティブは共有ライブラリと
+  SQLite の動かし方が根本から違い、`dart:io` を含むコードが Web ビルドに混ざるとコンパイルが通らない。
+  そのため `core/db/connection/` で**条件付き import**（ビルド時に切り替え）を使う。
+  - Web で DB を動かすには `web/` に `sqlite3.wasm` と `drift_worker.js` が必要。
 
 ## フォルダ規約
 
 ```
 lib/
-  main.dart           エントリポイント
+  main.dart           エントリポイント。ProviderScope の overrides もここ
   app.dart            MaterialApp などアプリ全体の組み立て
   core/               2つ以上の機能から使うものだけ置く
+    model/            全機能が共有する型（TrashItem / Destroyer）
     db/               Drift のデータベース定義
+      connection/     プラットフォーム別の接続（条件付き import）
     platform/         MethodChannel などネイティブ連携の共通部分
     theme/            配色・テキストスタイル
     widgets/          共通ウィジェット
-  features/<機能名>/
-    model/            データの形（TrashItem など）
-    repository/       データの取得・保存（DB / OS API を叩くのはここだけ）
-    provider/         Riverpod のプロバイダ。状態と、repository の呼び出し
-    ui/               画面とウィジェット
+  features/
+    trash/            ごみ箱（一覧・追加・完全消去の管理）
+      model/          trash だけが使う型
+      repository/
+      provider/
+      ui/
+    destroy/          消去演出
+      provider/       Destroyer を supports で振り分けて実行する
+      ui/
+        burn/         燃やす
+        shatter/      叩き割る
+    photo/            以下は model を持たない（core の TrashItem で足りるため）
+      repository/     PhotoDestroyer もここに置く
+      provider/
+      ui/
+    mail/             photo と同じ構成
+    app_uninstall/    photo と同じ構成
+    share_intake/     共有を受け取って TrashItem に変換するだけ
+      repository/
+      provider/
 ```
 
 ルール:
 
 - `ui` は **provider 経由でのみ** repository を呼ぶ。`ui` から repository を直接 import しない。
 - 2つ以上の機能から使うものだけ `core/` に置く。1つの機能でしか使わないものは features 配下に置いたままにする。
-- 機能は `trash` / `destroy` / `photo` / `mail` / `app_uninstall` / `share_intake` の6つ。
-  `destroy` だけは演出の種類ごとに `burn/` `shatter/` に分かれる。
+- **機能どうしを直接 import しない。** 共有したくなったら `core/` に上げる。
+- 各機能の `Destroyer` 実装は、その機能の `repository/` に置く
+  （例: `features/photo/repository/photo_destroyer.dart`）。
+  `destroy/provider/` はそれらを集めて振り分けるだけ。
+- フォルダは**必要になってから作る**。使わない空フォルダは置かない。
 - テストは `test/features/<機能名>/` に lib と同じ構造で置く。
 
 ## 共通の型
 
-すべての機能が扱う共通のデータは `TrashItem`。
+すべての機能が扱う共通のデータは `TrashItem`（`lib/core/model/trash_item.dart`）。
+全機能から使うので `features/trash/` ではなく `core/` に置いている。
 
 | フィールド | 意味 |
 | --- | --- |
@@ -72,7 +100,7 @@ lib/
 | `purgeAt` | 完全消去する予定の日時 |
 | `payload` | 種別ごとの追加情報 |
 
-削除処理は `Destroyer` インターフェースを実装する。
+削除処理は `Destroyer` インターフェース（`lib/core/model/destroyer.dart`）を実装する。
 
 ```dart
 abstract class Destroyer {
@@ -82,7 +110,8 @@ abstract class Destroyer {
 ```
 
 `supports` で「この Destroyer が扱える種別か」を判定し、`destroy` で実際に消す。
-新しい種別を足すときは `Destroyer` を1つ増やすだけで済むようにする。
+新しい種別を足すときは、その機能の `repository/` に `Destroyer` を1つ足して
+`destroy/provider/` の一覧に登録するだけで済む。
 
 ## コーディング規約
 

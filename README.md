@@ -40,6 +40,18 @@ flutter run -d chrome
 dart run build_runner watch --delete-conflicting-outputs
 ```
 
+### Web で DB を使うとき
+
+Drift は Web だと SQLite を WebAssembly で動かすため、`web/` に次の2つが必要。
+未配置のまま Chrome で DB を触ると実行時にエラーになる。
+
+- `sqlite3.wasm`
+- `drift_worker.js`
+
+入手方法は [Drift の Web セットアップ](https://drift.simonbinder.eu/platforms/web/) を参照。
+接続の切り替え自体は `lib/core/db/connection/` が条件付き import で行うので、
+呼ぶ側は `openConnection()` を使うだけでよい。
+
 ### OS 連携を確認したいとき
 
 写真・共有・アプリ削除などは Web では動かないので、エミュレータ／実機で確認する。
@@ -55,19 +67,21 @@ Android は `minSdk = 30` を前提にしている。
 
 ```
 lib/
-  main.dart           エントリポイント
+  main.dart           エントリポイント。ProviderScope の overrides もここ
   app.dart            MaterialApp などアプリ全体の組み立て
   core/               2つ以上の機能から使う共通コード
+    model/              全機能が共有する型（TrashItem / Destroyer）
     db/                 Drift のデータベース定義
+      connection/         プラットフォーム別の接続（条件付き import）
     platform/           MethodChannel などネイティブ連携の共通部分
     theme/              配色・テキストスタイル
     widgets/            共通ウィジェット
   features/           機能ごとのコード
     trash/              ごみ箱（一覧・追加・完全消去の管理）
     destroy/            消去演出
-      burn/               燃やす
-      shatter/            叩き割る
-      ui/
+      provider/           Destroyer を振り分けて実行する
+      ui/burn/            燃やす
+      ui/shatter/         叩き割る
     photo/              写真の取り込み
     mail/               メール（お祈りメール）の取り込み
     app_uninstall/      アプリの削除
@@ -76,14 +90,19 @@ test/
   features/           lib と同じ構造でテストを置く
 ```
 
-`destroy` 以外の各機能は、下に `model` / `repository` / `provider` / `ui` の4層を持つ。
+各機能は下に `repository` / `provider` / `ui` の3層を持つ。
+その機能だけが使う型が必要になったら `model` を足す。
 
 | 層 | 役割 |
 | --- | --- |
-| `model` | データの形（`TrashItem` など） |
+| `model` | その機能だけが使う型。共通の型は `core/model/` にある |
 | `repository` | データの取得・保存。DB や OS の API を叩くのはここだけ |
 | `provider` | Riverpod のプロバイダ。状態を持ち、repository を呼ぶ |
 | `ui` | 画面とウィジェット。repository は **provider 経由でのみ**呼ぶ |
+
+すべての機能は `TrashItem` を介してやり取りし、**機能どうしを直接 import しない**。
+削除処理は `Destroyer` インターフェースを各機能の `repository/` に実装し、
+`destroy/provider/` が `supports()` で振り分けて実行する。
 
 ## 開発ルール
 
