@@ -4,10 +4,49 @@
 
 「消すのは、気持ちいい。」がコンセプトの、破壊エンタメ型ごみ箱アプリ。
 
-お祈りメール・写真・アプリなどをアプリ内のごみ箱に入れ、完全消去するときに
-「叩き割る」「燃やす」などの演出を再生する。捨てる行為そのものを気持ちいい体験にするのが狙い。
+お祈りメールや消したい写真をアプリ内のごみ箱に入れ、
+「叩き割る」「燃やす」などの演出で破壊する。
+捨てる行為そのものを気持ちいい体験にするのが狙い。
 
 想定ユーザーは広く若い世代。
+
+### 扱う対象は2種類
+
+| 対象 | 取り込み方 | 破壊したときに起きること |
+| --- | --- | --- |
+| 写真 | OS 標準ピッカー / 共有シート | **アプリ内に取り込んだコピーだけ**を壊す。端末の写真ライブラリには触らないので、元の写真は残る |
+| メール | Gmail 連携 | 演出のあと Gmail API で**ゴミ箱に移動**する。完全削除はしない |
+
+写真で端末のライブラリを触らないのは、取り返しのつかない削除をアプリの中心に
+置きたくないため。写真ライブラリの権限も要求せずに済む。
+
+### 捨て台詞
+
+破壊の直前に、ユーザーが一言残せる。
+消したものの**中身は一切残さず、言葉だけ**を保存し、あとから振り返れる。
+
+## プロダクト方針
+
+**ここはユーザーへの約束なので、実装の都合で曲げない。**
+
+### 写真
+
+- 「**端末の写真は削除されません。アプリ内の写真だけが壊れます**」と初回に明示する。
+  設定画面からもいつでも確認できるようにする。
+- 端末の写真が消えたとユーザーに誤認させる文言・演出は**禁止**。
+  写真に対して「完全に消しました」「復元できません」のような表現を使わない。
+
+### メール
+
+- 「**Gmail のゴミ箱に移動します。30日後に Gmail 側で自動削除されます**」と明示する。
+- 完全削除は行わない。
+
+### 失敗したとき
+
+- 破壊操作が Gmail API で失敗した場合は、**演出のあとに失敗を通知**し、
+  アイテムをごみ箱に戻す。
+- 演出の途中でエラーを出さないのは、体験が途切れるのを避けるため。
+  ただし「失敗を黙って握りつぶす」のは禁止。必ずユーザーに伝える。
 
 ## 技術スタック
 
@@ -16,20 +55,25 @@
 | フレームワーク | Flutter / Dart |
 | 状態管理 | flutter_riverpod |
 | ローカル DB | Drift（SQLite 本体は `sqlite3` 3.x が同梱するので追加の依存は不要） |
-| ネイティブ連携 | photo_manager（写真）、google_sign_in + googleapis（メール）、receive_sharing_intent（共有受け取り） |
-| Android のアプリ削除 | MethodChannel + 自作 Kotlin コード |
+| 写真の取り込み | image_picker（OS 標準ピッカー）、receive_sharing_intent（共有シート） |
+| Gmail 連携 | google_sign_in + googleapis |
 | 演出 | rive |
 
-Android のアプリ削除だけは既存プラグインで賄えないため、MethodChannel を通して
-自分たちで書いた Kotlin を呼び出す。
+- **photo_manager は使わない。** 写真ライブラリ全体へのアクセス権限が必要になるため。
+  OS 標準ピッカーと共有シートなら、ユーザーが選んだものだけが渡ってくる。
+  **写真ライブラリへのアクセス権限は要求しない。**
+- Gmail のスコープは `gmail.readonly`（一覧の取得）と `gmail.modify`（ゴミ箱移動）の**2つだけ**。
+  完全削除に必要な制限付きスコープは要求しない。
+- **ネイティブコード（MethodChannel）は現時点で不要。** Kotlin / Swift は書かない。
 
 ## プラットフォーム方針
 
 - UI と演出は **Flutter Web** で開発・確認する（ホットリロードが速く、実機がいらないため）。
-- OS 連携（写真・共有・アプリ削除）は **Android エミュレータ** で確認する。
+- **Gmail 連携は Web でも動く**ので、Chrome で確認してよい。
+- **共有シートは Web で動かない**ため、**Android エミュレータ**で確認する。
 - **iOS** は節目ごとに Mac の実機で確認する。
 - Web で動かない機能は `abstract class` の裏に隠し、`kIsWeb` で偽実装（フェイク）に差し替える。
-  - 例: `abstract class PhotoRepository` を用意し、Web では固定のダミー写真を返す実装を注入する。
+  - 例: `abstract class ShareIntakeRepository` を用意し、Web ではダミーを注入する。
   - これにより「Web で UI を作る → 実機で本物の実装に差し替える」が同じコードのまま成立する。
 - **`kIsWeb` を書いてよいのは `main.dart` の `ProviderScope.overrides` だけ。**
   features 配下のコードは自分がどのプラットフォームで動いているかを知らなくてよい。
@@ -63,16 +107,25 @@ lib/
       ui/
         burn/         燃やす
         shatter/      叩き割る
-    photo/            以下は model を持たない（core の TrashItem で足りるため）
-      repository/     PhotoDestroyer もここに置く
-      provider/
+    photo/            写真の取り込み。以下は model を持たない
+      repository/     ピッカー/共有シートで受けた画像をアプリ内にコピーし
+      provider/       TrashItem に変換する。LocalCopyDestroyer もここ
       ui/
-    mail/             photo と同じ構成
-    app_uninstall/    photo と同じ構成
-    share_intake/     共有を受け取って TrashItem に変換するだけ
+    mail/             Gmail 連携。GmailTrashDestroyer もここ
       repository/
       provider/
+      ui/
+    share_intake/     共有シートから受け取って TrashItem に変換するだけ
+      repository/
+      provider/
+    epitaph/          捨て台詞の保存と振り返り
+      repository/
+      provider/
+      ui/
 ```
+
+機能は `trash`（ごみ箱本体）/ `destroy`（演出）/ `photo`（写真の取り込み）/
+`mail`（Gmail 連携）/ `share_intake`（共有シート）/ `epitaph`（捨て台詞）の6つ。
 
 ルール:
 
@@ -87,20 +140,34 @@ lib/
 
 ## 共通の型
 
-すべての機能が扱う共通のデータは `TrashItem`（`lib/core/model/trash_item.dart`）。
-全機能から使うので `features/trash/` ではなく `core/` に置いている。
+全機能が共有する型は `lib/core/model/` に置く。
+`features/trash/` に置くと他の機能がそこを import することになるため。
+
+### TrashItem
+
+ごみ箱に入っているもの1件（`lib/core/model/trash_item.dart`）。
 
 | フィールド | 意味 |
 | --- | --- |
 | `id` | 一意な ID（uuid） |
-| `type` | 種別（写真 / メール / アプリ など） |
+| `type` | `TrashItemType`（`photo` / `mail` / `text`） |
 | `title` | 一覧に出す表示名 |
 | `thumbnailPath` | サムネイル画像のパス |
 | `addedAt` | ごみ箱に入れた日時 |
 | `purgeAt` | 完全消去する予定の日時 |
 | `payload` | 種別ごとの追加情報 |
 
-削除処理は `Destroyer` インターフェース（`lib/core/model/destroyer.dart`）を実装する。
+`payload` の中身は `type` で決まる。
+
+| `type` | `payload` に入れるもの |
+| --- | --- |
+| `photo` | アプリ内にコピーした画像のファイルパス |
+| `mail` | Gmail の `messageId`、送信者、件名、日付 |
+| `text` | 共有されてきたテキストや URL |
+
+### Destroyer
+
+削除処理のインターフェース（`lib/core/model/destroyer.dart`）。
 
 ```dart
 abstract class Destroyer {
@@ -110,8 +177,32 @@ abstract class Destroyer {
 ```
 
 `supports` で「この Destroyer が扱える種別か」を判定し、`destroy` で実際に消す。
-新しい種別を足すときは、その機能の `repository/` に `Destroyer` を1つ足して
-`destroy/provider/` の一覧に登録するだけで済む。
+実装は**2つだけ**。
+
+| 実装 | 担当する `type` | やること | 置き場所 |
+| --- | --- | --- | --- |
+| `LocalCopyDestroyer` | `photo` / `text` | アプリ内のコピーと DB レコードを消すだけ | `features/photo/repository/` |
+| `GmailTrashDestroyer` | `mail` | Gmail API の `messages.trash` を呼んだあと、アプリ内レコードを消す | `features/mail/repository/` |
+
+`LocalCopyDestroyer` が端末の写真ライブラリを触ることは**ない**。
+消すのはアプリ内のコピーだけ。
+
+### Epitaph（捨て台詞）
+
+破壊の直前にユーザーが残した一言。`TrashItem` とは**別テーブル**に保存する。
+
+| フィールド | 意味 |
+| --- | --- |
+| `id` | 一意な ID（uuid） |
+| `text` | ユーザーが残した言葉 |
+| `type` | 何を捨てたときのものか（`TrashItemType`） |
+| `title` | 捨てたものの表示名 |
+| `destroyedAt` | 破壊した日時 |
+| `destroyMethod` | どの演出で壊したか（燃やす / 叩き割る） |
+
+**元データの中身は一切含めない。** 写真そのものやメール本文は残さない。
+「消したはずのものがアプリ内に残っている」状態を作らないため。
+別テーブルにしているのも、`TrashItem` が消えても捨て台詞だけが残るようにするため。
 
 ## コーディング規約
 
