@@ -5,6 +5,87 @@ Claude に何をやらせたか / どこまで進んだかの記録。
 
 ---
 
+## 2026-09-05 構成の見直し（レビュー指摘 A〜F の反映）
+
+**ブランチ**: `fujii`（PR #1 マージ後の main から作成）
+
+初期構成をレビューして見つかった問題を修正した。
+
+### A. 共通の型の置き場所を `core/model/` に
+
+`TrashItem` と `Destroyer` は全機能が使うのに置き場所が無く、
+`features/trash/model/` に置くと他の機能が `features/trash/` を
+import することになる（機能間の横依存）。`core/model/` を新設して解決。
+
+- `lib/core/model/trash_item.dart` … `TrashItem` と `TrashType`
+- `lib/core/model/destroyer.dart` … `Destroyer` インターフェース
+
+### B. Drift の Web 対応（条件付き import）
+
+「UI は Web で開発する」方針と Drift がぶつかっていた。
+Web は WebAssembly、ネイティブは共有ライブラリで動かし方が違い、
+`dart:io` を含むコードが Web ビルドに混ざるとコンパイルできない。
+`kIsWeb`（実行時分岐）では解決しないので**条件付き import**にした。
+
+- `lib/core/db/connection/connection.dart` … 切り替えの入口
+- `native.dart` / `web.dart` / `unsupported.dart`
+
+**未完**: Web で動かすには `web/` に `sqlite3.wasm` と `drift_worker.js` が必要。
+まだ置いていないので、Web で DB を触ると実行時に落ちる。
+
+### C. `sqlite3_flutter_libs` を削除
+
+解決されていた `0.6.0+eol` は中身のコードが全削除された空パッケージだった
+（`description: "Not used anymore, update to version 3.x of package:sqlite3 instead"`）。
+`sqlite3` 3.x が自前でネイティブライブラリをビルドするため不要。
+
+### D. `destroy/` の構成を修正
+
+`burn` / `shatter` は実体が UI なので `ui/` の下に移動。
+「どの Destroyer を使うか振り分ける」置き場所が無かったので `provider/` を追加。
+
+```
+destroy/provider/     Destroyer を supports() で振り分けて実行
+destroy/ui/burn/
+destroy/ui/shatter/
+```
+
+各 `Destroyer` の実装は機能側の `repository/` に置く
+（例: `features/photo/repository/photo_destroyer.dart`）。
+
+### E. 使わない空フォルダを削除
+
+`core/model/TrashItem` で足りるので、以下を削除した。
+必要になってから作る方針に変更。
+
+- `features/{photo,mail,app_uninstall,share_intake}/model/`
+- `features/share_intake/ui/`（画面を持たない機能のため）
+
+### F. `kIsWeb` の分岐を `main.dart` の1か所に閉じた
+
+`main.dart` を `ProviderScope` で包み、偽実装への差し替えは
+ここの `overrides` だけで行う方針をコメントで明記。
+features 配下は `kIsWeb` を知らずに済む。
+
+### あわせて更新
+
+- `CLAUDE.md` … フォルダ規約・共通の型・プラットフォーム方針を新構成に合わせた
+- `README.md` … フォルダ構成、Web で DB を使うときの手順を追記
+
+### 積み残し（次に決めること）
+
+- [ ] `web/sqlite3.wasm` と `web/drift_worker.js` の配置。
+      生成物をリポジトリに入れるか、セットアップ手順にするか要相談
+- [ ] **Android のアプリ削除は「黙って消す」ことが OS 的に不可能。**
+      `ACTION_DELETE` で OS の確認ダイアログが出るところまでしかできない。
+      演出 → OS ダイアログ、という流れになるので UX を相方と相談する
+- [ ] **Gmail の完全削除は制限付きスコープで OAuth 審査が必要。**
+      ハッカソン中はテストユーザーで回避できるが、
+      「Gmail のゴミ箱に移す」(`gmail.modify`) に留める方が現実的
+- [ ] `core/db/database.dart`（Drift のテーブル定義）はまだ未作成
+
+---
+
 ## 2026-09-05 プロジェクト初期構成
 
 **ブランチ**: `feature/project-structure`（未コミット）
