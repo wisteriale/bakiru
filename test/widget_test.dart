@@ -6,7 +6,8 @@
 // tree, read text, and verify that the values of widget properties are correct.
 
 import 'package:bakiru/app.dart';
-import 'package:bakiru/core/repository/trash_repository.dart';
+import 'package:bakiru/features/trash/provider/trash_repository_provider.dart';
+import 'package:bakiru/features/trash/repository/fake_trash_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 

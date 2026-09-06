@@ -1,7 +1,7 @@
 import 'package:bakiru/core/model/trash_item.dart';
-import 'package:bakiru/core/repository/trash_repository.dart';
 import 'package:bakiru/core/theme/app_theme.dart';
 import 'package:bakiru/features/destroy/ui/shatter/shatter_page.dart';
+import 'package:bakiru/features/trash/provider/trash_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

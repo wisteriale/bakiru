@@ -90,8 +90,11 @@ lib/
   main.dart           エントリポイント。ProviderScope の overrides もここ
   app.dart            MaterialApp などアプリ全体の組み立て
   core/               2つ以上の機能から使うものだけ置く
-    model/            全機能が共有する型（TrashItem / Destroyer）
+    model/            全機能が共有する型
+                      TrashItem / Destroyer / Epitaph / DestroyMethod
     db/               Drift のデータベース定義
+      database.dart   どのテーブルを使うかの宣言だけ
+      tables/         テーブル定義（1テーブル1ファイル）
       connection/     プラットフォーム別の接続（条件付き import）
     platform/         MethodChannel などネイティブ連携の共通部分
     theme/            配色・テキストスタイル
@@ -142,6 +145,27 @@ lib/
 
 全機能が共有する型は `lib/core/model/` に置く。
 `features/trash/` に置くと他の機能がそこを import することになるため。
+
+### DB のテーブルとの関係
+
+`core/model/` の手書きの型と、Drift が生成するテーブルのクラスは**別物**にする。
+
+| ドメイン型（手書き） | テーブル（Drift が生成） |
+| --- | --- |
+| `TrashItem` | `TrashItemRow` |
+| `Epitaph` | `EpitaphRow` |
+
+変換は **repository の責務**。
+「`Map` をそのまま保存できない」「enum をそのまま保存できない」といった
+DB の都合はテーブル側に閉じ込める。こうするとドメイン型が Drift に
+依存しないので、Web の偽実装（Fake）でも同じ型をそのまま使える。
+
+- `payload` は DB では `payloadJson`（JSON 文字列）1カラムに入れる。
+- enum は index ではなく**名前**で保存する（`textEnum`）。
+  あとで並び順を変えても既存データが壊れないため。
+- テーブル定義は `core/db/tables/` に1ファイルずつ置く。
+  `database.dart` は「どのテーブルを使うか」の宣言だけにして、
+  2人が別のテーブルを同時に触っても衝突しにくくしている。
 
 ### TrashItem
 

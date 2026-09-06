@@ -17,6 +17,9 @@
 
 ### 次の対応
 
-- 担当Aの共通土台（DB・共通モデル・Repository契約）を取り込み、
-  B側の仮実装とUIをその定義に合わせる。
-- その後、叩き割る演出をRiveで実装する。
+- 担当Aの共通土台を取り込んだ。
+  - `TrashItem`、`Epitaph`、`DestroyMethod` は担当Aの定義を採用した。
+  - Repository契約は `features/<機能>/repository/` の定義に統一した。
+  - B側の `FakeTrashRepository` と Provider、UI、テストはその定義へ合わせた。
+  - 取り込み後も `flutter analyze` と `flutter test` は成功した。
+- 次は叩き割る演出をRiveで実装する。

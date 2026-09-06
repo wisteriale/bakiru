@@ -1,40 +1,7 @@
 import 'package:bakiru/core/model/trash_item.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bakiru/features/trash/repository/trash_repository.dart';
 
-/// ごみ箱の実装を画面へ渡す Provider。
-///
-/// 現在は `main.dart` の `ProviderScope.overrides` で
-/// [FakeTrashRepository] を注入する。
-/// 担当Aの本実装ができたら、
-/// 差し替え先だけを変更すれば画面側はそのまま使える。
-final trashRepositoryProvider = Provider<TrashRepository>((ref) {
-  throw UnimplementedError(
-    'TrashRepository を ProviderScope で設定してください。',
-  );
-});
-
-/// ごみ箱の一覧と追加・削除を扱う窓口。
-///
-/// 実装は担当Aが Drift を使って作る。
-/// 担当Bは同じ形の [FakeTrashRepository] を差し替え、
-/// DBを待たずに
-/// 画面と演出を作れる。
-abstract class TrashRepository {
-  /// ごみ箱内の項目を更新のたびに返す。
-  Stream<List<TrashItem>> watchAll();
-
-  /// [item] をごみ箱へ追加する。
-  Future<void> add(TrashItem item);
-
-  /// IDが [id] の項目をごみ箱から取り除く。
-  Future<void> remove(String id);
-}
-
-/// B担当が画面と演出を作るための、一時的なごみ箱実装。
-///
-/// アプリを再起動すると初期データへ戻る。
-/// 担当Aの本実装が完成したら、
-/// `ProviderScope.overrides` の差し替え先を変える。
+/// DB完成前に画面と演出を確認するための、一時的なごみ箱実装。
 class FakeTrashRepository implements TrashRepository {
   /// ダミー項目を持つ [FakeTrashRepository] を作る。
   FakeTrashRepository({List<TrashItem>? initialItems})
