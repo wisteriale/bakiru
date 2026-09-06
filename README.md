@@ -61,14 +61,24 @@ dart run build_runner watch --delete-conflicting-outputs
 ### Web で DB を使うとき
 
 Drift は Web だと SQLite を WebAssembly で動かすため、`web/` に次の2つが必要。
-未配置のまま Chrome で DB を触ると実行時にエラーになる。
 
 - `sqlite3.wasm`
 - `drift_worker.js`
 
-入手方法は [Drift の Web セットアップ](https://drift.simonbinder.eu/platforms/web/) を参照。
+**どちらもリポジトリに入れてあるので、追加の作業はいらない。**
+clone してそのまま `flutter run -d chrome` で DB が動く。
+
+drift のリリースから取得したもの（現在は `drift-2.34.4`）。
+drift のバージョンを上げたときは、同じバージョンのものに差し替えること。
+
+```bash
+gh release download drift-<バージョン> -R simolus3/drift \
+  -p drift_worker.js -p sqlite3.wasm -D web/
+```
+
 接続の切り替え自体は `lib/core/db/connection/` が条件付き import で行うので、
 呼ぶ側は `openConnection()` を使うだけでよい。
+
 
 ### OS 連携を確認したいとき
 

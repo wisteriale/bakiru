@@ -178,6 +178,19 @@ PR でマージ済みだと分かっているので使ってよい。
 **注意: 未コミットの変更や push していないコミットがあると消える。**
 実行前に必ず `git status` が空であることを確認すること。
 
+**マージ画面で "Delete branch" を押してしまった場合**、リモートに `fujii` が
+無いので、上の `--force-with-lease` は `stale info` と言って拒否される。
+やろうとしているのが「上書き」ではなく「新規作成」になるため。
+安全装置が正しく働いただけなので、慌てず次の2つでよい。
+
+```bash
+git fetch --prune origin    # 消えたブランチの古い情報を手元からも消す
+git push -u origin fujii    # force は要らない。新しく作るだけ
+```
+
+`--prune` は「リモートで消えたブランチの情報を手元からも消す」オプション。
+これを飛ばすと、手元だけ `origin/fujii` が生き残って同じエラーが続く。
+
 #### パターン2: 作業の途中で、相方の PR が `main` にマージされた → **merge で取り込む**
 
 作業中のコミットを残したまま最新を取り込む。
@@ -312,6 +325,7 @@ detached HEAD は「どのブランチにも乗っていない状態」なので
 | `Already up to date.` と出るのに main の変更が反映されない | `git fetch` していないので、手元の `origin/main` が古い | `git fetch origin` してから `git merge origin/main` |
 | `git push` が `rejected` される | リモートに自分が持っていないコミットがある（別の PC から push した等） | `git fetch origin` → `git merge origin/fujii` → `git push` |
 | ブランチを作り直したら push が拒否される | ローカルとリモートで履歴が別物になったため。A パターン1 の直後に起きる | `git push --force-with-lease`（自分しか使わないブランチなので問題ない） |
+| `--force-with-lease` が `stale info` で拒否される | リモートにそのブランチが無い（マージ時に "Delete branch" を押した）か、相方がそのブランチに push していた | `git ls-remote origin` でリモートの実体を確認。ブランチが無いだけなら `git fetch --prune origin` → `git push -u origin fujii`。**`--force`（lease 無し）で押し込まないこと。相方のコミットが消える** |
 | PR の差分が巨大になっている | `main` の取り込みを長期間サボった | 次から朝いちで取り込む。今回は諦めて丁寧にレビューする |
 | PR の差分に相方の変更が混ざる | `main` の取り込みが中途半端 | `git fetch origin && git merge origin/main` をやり直す |
 
