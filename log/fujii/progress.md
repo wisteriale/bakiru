@@ -5,6 +5,66 @@ Claude に何をやらせたか / どこまで進んだかの記録。
 
 ---
 
+## 2026-09-06 Day 0（土台）を作成
+
+**ブランチ**: `fujii`（未コミット / マージはまだ）
+
+相方とペアでやる予定だった Day 0 を、先に1人で形にした。
+議論が必要なのは `abstract class` のシグネチャだけなので、
+**コードを見せてレビューで合意を取る**方が速いと判断した。
+
+### やったこと
+
+| # | 内容 | ファイル |
+| --- | --- | --- |
+| 1 | `TrashType` → `TrashItemType` に改名、値を photo/mail/text に整理 | `core/model/trash_item.dart` |
+| 2 | `Epitaph` と `DestroyMethod` を追加 | `core/model/epitaph.dart` / `destroy_method.dart` |
+| 3 | Drift のテーブル定義2つ + `AppDatabase` | `core/db/tables/` / `core/db/database.dart` |
+| 4 | `abstract class` 3つ | 各機能の `repository/` |
+
+`dart run build_runner build` で `core/db/database.g.dart` を生成済み。
+`flutter analyze` はエラー0（残 info 8件はテンプレート由来で従来どおり）。
+
+### 決めたこと：DB のテーブルとドメイン型は分ける
+
+手書きの `TrashItem` と、Drift が生成する `TrashItemRow` を別物にし、
+変換は repository の責務にした。
+
+理由は、ドメイン型を Drift に依存させないため。
+こうしておくと Web の偽実装（Fake）でも同じ `TrashItem` をそのまま使える。
+
+付随して決めたこと。
+
+- `payload`（Map）は DB では `payloadJson` という JSON 文字列1カラムに入れる
+- enum は index ではなく**名前**で保存する（`textEnum`）。
+  並び順を変えても既存データが壊れないため
+- テーブル定義は `core/db/tables/` に1テーブル1ファイル。
+  `database.dart` は宣言だけにして、2人が同時に触っても衝突しにくくした
+- `analysis_options.yaml` に `**/*.g.dart` を除外追加
+  （生成ファイルが lint に引っかかるため）
+
+### 相方に確認してほしいこと（PR で聞く）
+
+`abstract class` のシグネチャは担当Bが Fake を書くときの「契約」になるので、
+ここだけは合意が要る。
+
+- `TrashRepository` … `watchAll()` / `add()` / `remove()`
+- `PhotoRepository` … `pickAndImport()` / `deleteLocalCopy()`
+- `MailRepository` … `signIn()` / `fetchRecent()` / `moveToTrash()`
+
+### 積み残し
+
+- [ ] **マージまでやること。** push だけで放置すると相方が動けない
+- [ ] `EpitaphRepository` は未作成（Day 0 の指定に無かったため）。担当Bが必要なら追加
+- [ ] `AppDatabase` にテスト用のコンストラクタが無く、DB の単体テストが書けない
+      （`AppDatabase.forTesting(super.e)` を足せば解決。必要になったら）
+- [ ] `web/sqlite3.wasm` と `web/drift_worker.js` の配置
+- [ ] `flutter_secure_storage` の用途が未定。不要なら外す
+- [ ] `.gitattributes`（Windows/Mac の改行コード）は保留のまま
+
+
+---
+
 ## 2026-09-05 スコープの確定（アプリ削除をやめ、捨て台詞を追加）
 
 **ブランチ**: `fujii`（未コミット）
