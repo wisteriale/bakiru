@@ -1,6 +1,6 @@
 /// ごみ箱に入っているもの1件を表す。
 ///
-/// 写真・メール・アプリと中身は違っても、一覧の表示や消去の演出では
+/// 写真・メール・テキストと中身は違っても、一覧の表示や消去の演出では
 /// 同じように扱いたい。そのため各機能はこの型に変換してから
 /// ごみ箱に渡す、という約束にしている。
 class TrashItem {
@@ -19,7 +19,7 @@ class TrashItem {
   final String id;
 
   /// 何を捨てたのかの種別。
-  final TrashType type;
+  final TrashItemType type;
 
   /// 一覧に表示する名前。
   final String title;
@@ -37,7 +37,7 @@ class TrashItem {
 
   /// 種別ごとの追加情報。
   ///
-  /// 写真なら `{'assetId': 'xxx'}`、メールなら `{'messageId': 'xxx'}`
+  /// 写真なら `{'filePath': 'xxx'}`、メールなら `{'messageId': 'xxx'}`
   /// のように入れておき、実際に消すときに Destroyer が読み出す。
   /// 種別が増えても [TrashItem] 自体を変えずに済むようにするための逃げ道。
   final Map<String, Object?> payload;
@@ -46,16 +46,13 @@ class TrashItem {
 /// [TrashItem] の種別。
 ///
 /// 削除処理をどの Destroyer に任せるかの判定に使う。
-enum TrashType {
-  /// 端末内の写真。
+enum TrashItemType {
+  /// アプリ内にコピーした写真。
   photo,
 
   /// メール（お祈りメールなど）。
   mail,
 
-  /// インストール済みのアプリ。
-  app,
-
-  /// 他アプリから共有されてきた URL やテキスト。
-  shared,
+  /// 他アプリから共有されてきたテキストや URL。
+  text,
 }
