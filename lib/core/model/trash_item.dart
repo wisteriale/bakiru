@@ -1,8 +1,12 @@
 /// ごみ箱に入っているもの1件を表す。
 ///
-/// 写真・メール・アプリと中身は違っても、一覧の表示や消去の演出では
+/// 写真・メール・テキストと中身は違っても、一覧の表示や消去の演出では
 /// 同じように扱いたい。そのため各機能はこの型に変換してから
 /// ごみ箱に渡す、という約束にしている。
+///
+/// DB のテーブル（TrashItemRow）とは別物。DB の都合はテーブル側が持ち、
+/// repository が両者を変換する。こうしておくとこの型は Drift に
+/// 依存しないので、Web の偽実装でもそのまま使える。
 class TrashItem {
   /// [TrashItem] を作る。
   const TrashItem({
@@ -19,7 +23,7 @@ class TrashItem {
   final String id;
 
   /// 何を捨てたのかの種別。
-  final TrashType type;
+  final TrashItemType type;
 
   /// 一覧に表示する名前。
   final String title;
@@ -37,25 +41,26 @@ class TrashItem {
 
   /// 種別ごとの追加情報。
   ///
-  /// 写真なら `{'assetId': 'xxx'}`、メールなら `{'messageId': 'xxx'}`
-  /// のように入れておき、実際に消すときに Destroyer が読み出す。
+  /// 中身は [type] で決まる。
+  /// - [TrashItemType.photo] … アプリ内にコピーした画像のファイルパス
+  /// - [TrashItemType.mail] … Gmail の messageId・送信者・件名・日付
+  /// - [TrashItemType.text] … 共有されてきたテキストや URL
+  ///
   /// 種別が増えても [TrashItem] 自体を変えずに済むようにするための逃げ道。
+  /// DB には JSON 文字列に変換して保存する。
   final Map<String, Object?> payload;
 }
 
 /// [TrashItem] の種別。
 ///
 /// 削除処理をどの Destroyer に任せるかの判定に使う。
-enum TrashType {
-  /// 端末内の写真。
+enum TrashItemType {
+  /// アプリ内に取り込んだ写真のコピー。端末の写真ライブラリは含まない。
   photo,
 
-  /// メール（お祈りメールなど）。
+  /// Gmail から取り込んだメール。
   mail,
 
-  /// インストール済みのアプリ。
-  app,
-
-  /// 他アプリから共有されてきた URL やテキスト。
-  shared,
+  /// 共有シートから受け取ったテキストや URL。
+  text,
 }
