@@ -22,7 +22,9 @@ abstract class MailRepository {
   /// 直近のメールを取得し、ごみ箱に入れられる形にして返す。
   ///
   /// [limit] は取得する件数の上限。
-  Future<List<TrashItem>> fetchRecent({int limit = 20});
+  /// [query] は Gmail の検索窓と同じ構文の絞り込み条件。
+  /// 検索は Gmail 側で行われるので、アプリが本文を受け取ることはない。
+  Future<List<TrashItem>> fetchRecent({int limit = 20, String? query});
 
   /// [messageId] のメールを Gmail のゴミ箱に移す。
   ///

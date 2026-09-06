@@ -77,13 +77,17 @@ class GmailMailRepository implements MailRepository {
   }
 
   @override
-  Future<List<TrashItem>> fetchRecent({int limit = 20}) async {
+  Future<List<TrashItem>> fetchRecent({int limit = 20, String? query}) async {
     final client = await _authorizedClient();
     try {
       final api = GmailApi(client);
 
       // list が返すのは ID だけなので、件名や送信者は1件ずつ取りに行く。
-      final listed = await api.users.messages.list('me', maxResults: limit);
+      final listed = await api.users.messages.list(
+        'me',
+        maxResults: limit,
+        q: query,
+      );
       final messages = listed.messages ?? const <Message>[];
 
       final items = <TrashItem>[];

@@ -6,6 +6,26 @@ import 'package:bakiru/features/mail/ui/sign_in_button/sign_in_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+/// お祈りメールを拾うための Gmail 検索条件。
+///
+/// 件名だけでは拾いきれないので、本文によく出る定型句も混ぜている。
+/// 検索は Gmail のサーバー側で行われ、アプリが受け取るのは一致した
+/// メールのヘッダだけ。本文がアプリに入ってくることはない。
+const String _rejectionQuery =
+    '"誠に残念ながら" OR "ご期待に添えない" OR "ご期待に沿えない" '
+    'OR "今後のご活躍をお祈り" OR subject:(選考結果 OR 選考のご案内)';
+
+/// メール一覧の絞り込み。
+enum _MailFilter {
+  rejection('お祈りメール', _rejectionQuery),
+  all('すべて', null);
+
+  const _MailFilter(this.label, this.query);
+
+  final String label;
+  final String? query;
+}
+
 /// Gmail からメールを取り込む画面。
 ///
 /// 選んだメールを [TrashItem] のリストにして `Navigator.pop` で返す。
@@ -22,7 +42,9 @@ class GmailPage extends ConsumerStatefulWidget {
 class _GmailPageState extends ConsumerState<GmailPage> {
   List<TrashItem> _mails = const [];
   final Set<String> _selectedIds = {};
+  _MailFilter _filter = _MailFilter.rejection;
   bool _loading = false;
+  bool _loaded = false;
   String? _error;
 
   @override
@@ -41,7 +63,9 @@ class _GmailPageState extends ConsumerState<GmailPage> {
     });
 
     try {
-      final mails = await ref.read(mailRepositoryProvider).fetchRecent();
+      final mails = await ref
+          .read(mailRepositoryProvider)
+          .fetchRecent(query: _filter.query);
       if (!mounted) {
         return;
       }
@@ -49,6 +73,7 @@ class _GmailPageState extends ConsumerState<GmailPage> {
         _mails = mails;
         _selectedIds.clear();
         _loading = false;
+        _loaded = true;
       });
     } on Exception catch (error) {
       if (!mounted) {
@@ -126,13 +151,27 @@ class _GmailPageState extends ConsumerState<GmailPage> {
   }
 
   Widget _buildMailList(BuildContext context) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _TrashNotice(),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Wrap(
+            spacing: 8,
+            children: [
+              for (final filter in _MailFilter.values)
+                ChoiceChip(
+                  label: Text(filter.label),
+                  selected: _filter == filter,
+                  onSelected: (_) async {
+                    setState(() => _filter = filter);
+                    await _load();
+                  },
+                ),
+            ],
+          ),
+        ),
         if (_error != null)
           Padding(
             padding: const EdgeInsets.all(16),
@@ -141,35 +180,43 @@ class _GmailPageState extends ConsumerState<GmailPage> {
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
-        if (_mails.isEmpty)
-          Expanded(
-            child: Center(
-              child: FilledButton.icon(
-                onPressed: () async {
-                  await _load();
-                },
-                icon: const Icon(Icons.download),
-                label: const Text('メールを読み込む'),
-              ),
-            ),
-          )
-        else
-          Expanded(
-            child: ListView.builder(
-              itemCount: _mails.length,
-              itemBuilder: (context, index) {
-                final mail = _mails[index];
-                return CheckboxListTile(
-                  value: _selectedIds.contains(mail.id),
-                  onChanged: (checked) =>
-                      _toggle(mail.id, selected: checked ?? false),
-                  title: Text(mail.title),
-                  subtitle: Text(mail.payload['from']?.toString() ?? ''),
-                );
-              },
-            ),
-          ),
+        Expanded(child: _buildBody()),
       ],
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (!_loaded) {
+      return Center(
+        child: FilledButton.icon(
+          onPressed: () async {
+            await _load();
+          },
+          icon: const Icon(Icons.download),
+          label: const Text('メールを読み込む'),
+        ),
+      );
+    }
+
+    if (_mails.isEmpty) {
+      return const Center(child: Text('該当するメールは見つかりませんでした。'));
+    }
+
+    return ListView.builder(
+      itemCount: _mails.length,
+      itemBuilder: (context, index) {
+        final mail = _mails[index];
+        return CheckboxListTile(
+          value: _selectedIds.contains(mail.id),
+          onChanged: (checked) => _toggle(mail.id, selected: checked ?? false),
+          title: Text(mail.title),
+          subtitle: Text(mail.payload['from']?.toString() ?? ''),
+        );
+      },
     );
   }
 }
