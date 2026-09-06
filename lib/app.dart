@@ -2,6 +2,7 @@ import 'package:bakiru/core/model/trash_item.dart';
 import 'package:bakiru/core/theme/app_theme.dart';
 import 'package:bakiru/features/destroy/ui/shatter/shatter_page.dart';
 import 'package:bakiru/features/epitaph/ui/epitaph_entry_page.dart';
+import 'package:bakiru/features/mail/ui/gmail_page.dart';
 import 'package:bakiru/features/trash/provider/trash_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,19 +32,15 @@ class _TrashHomePage extends ConsumerWidget {
       body: SafeArea(
         child: Column(
           children: [
-            const Spacer(flex: 5),
-            const Text(
-              'バキる',
-              style: TextStyle(
-                color: Color(0xff111111),
-                fontSize: 44,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 3,
-              ),
+            const Spacer(flex: 3),
+            Image.asset(
+              'assets/images/bakiru_logo.png',
+              width: 236,
+              semanticLabel: 'バキる',
             ),
-            const Spacer(flex: 6),
+            const SizedBox(height: 80),
             Padding(
-              padding: const EdgeInsets.fromLTRB(28, 0, 28, 28),
+              padding: const EdgeInsets.symmetric(horizontal: 28),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -57,11 +54,43 @@ class _TrashHomePage extends ConsumerWidget {
                   _HomeMenuButton(
                     icon: Icons.mail_outline,
                     label: 'メール',
-                    onPressed: () {
+                    onPressed: () async {
+                      final selected = await Navigator.of(context).push<
+                          List<TrashItem>>(
+                        MaterialPageRoute<List<TrashItem>>(
+                          builder: (context) => const GmailPage(),
+                        ),
+                      );
+                      if (!context.mounted || selected == null || selected.isEmpty) {
+                        return;
+                      }
+
+                      final item = selected.length == 1
+                          ? selected.single
+                          : await Navigator.of(context).push<TrashItem>(
+                              MaterialPageRoute<TrashItem>(
+                                builder: (context) => _SelectedGmailMailPage(
+                                  items: selected,
+                                ),
+                              ),
+                            );
+                      if (!context.mounted || item == null) return;
+
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (context) => _MailSelectionPage(
-                            loadMailItems: _PreviewMailSource.load,
+                          builder: (context) => EpitaphEntryPage(
+                            item: item,
+                            onContinue: (epitaph) {
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute<void>(
+                                  builder: (context) => ShatterPage(
+                                    item: item,
+                                    epitaphText: epitaph,
+                                  ),
+                                ),
+                                (route) => route.isFirst,
+                              );
+                            },
                           ),
                         ),
                       );
@@ -81,6 +110,7 @@ class _TrashHomePage extends ConsumerWidget {
                 ],
               ),
             ),
+            const Spacer(flex: 3),
           ],
         ),
       ),
@@ -255,113 +285,29 @@ class _TrashItemCard extends StatelessWidget {
   }
 }
 
-/// Gmailから選べるメールの取得処理。
-///
-/// 現在は仮データを返し、Gmail連携が完成したら
-/// MailRepository.fetchRecent を呼ぶ関数へ差し替える。
-typedef _MailItemsLoader = Future<List<TrashItem>> Function();
+class _SelectedGmailMailPage extends StatelessWidget {
+  const _SelectedGmailMailPage({required this.items});
 
-class _MailSelectionPage extends StatefulWidget {
-  const _MailSelectionPage({required this.loadMailItems});
-
-  final _MailItemsLoader loadMailItems;
-
-  @override
-  State<_MailSelectionPage> createState() => _MailSelectionPageState();
-}
-
-class _MailSelectionPageState extends State<_MailSelectionPage> {
-  late final Future<List<TrashItem>> _mailItems;
-
-  @override
-  void initState() {
-    super.initState();
-    _mailItems = widget.loadMailItems();
-  }
-
-  void _selectMail(TrashItem item) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => EpitaphEntryPage(
-          item: item,
-          onContinue: (epitaph) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute<void>(
-                builder: (context) => ShatterPage(
-                  item: item,
-                  epitaphText: epitaph,
-                ),
-              ),
-              (route) => route.isFirst,
-            );
-          },
-        ),
-      ),
-    );
-  }
+  final List<TrashItem> items;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('メールを選ぶ')),
-      body: FutureBuilder<List<TrashItem>>(
-        future: _mailItems,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return const Center(child: Text('メールを読み込めませんでした。'));
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final mailItems = snapshot.requireData;
-          return ListView.separated(
-            itemCount: mailItems.length,
-            itemBuilder: (context, index) {
-              final item = mailItems[index];
-              return ListTile(
-                leading: const Icon(Icons.mail_outline),
-                title: Text(item.title),
-                subtitle: Text(_senderFor(item)),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _selectMail(item),
-              );
-            },
-            separatorBuilder: (context, index) => const Divider(height: 1),
+      appBar: AppBar(title: const Text('叩き割るメールを選ぶ')),
+      body: ListView.separated(
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return ListTile(
+            leading: const Icon(Icons.mail_outline),
+            title: Text(item.title),
+            subtitle: Text(item.payload['from']?.toString() ?? ''),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).pop(item),
           );
         },
+        separatorBuilder: (context, index) => const Divider(height: 1),
       ),
     );
   }
-
-  String _senderFor(TrashItem item) {
-    return item.payload['sender'] as String? ?? '送信者不明';
-  }
-}
-
-class _PreviewMailSource {
-  static Future<List<TrashItem>> load() async => [
-        TrashItem(
-          id: 'preview-mail-1',
-          type: TrashItemType.mail,
-          title: '選考結果のお知らせ',
-          addedAt: DateTime(2026, 9, 6),
-          purgeAt: DateTime(2026, 10, 6),
-          payload: const {
-            'messageId': 'preview-message-1',
-            'sender': '採用担当 <recruit@example.com>',
-          },
-        ),
-        TrashItem(
-          id: 'preview-mail-2',
-          type: TrashItemType.mail,
-          title: '今後の選考について',
-          addedAt: DateTime(2026, 9, 5),
-          purgeAt: DateTime(2026, 10, 5),
-          payload: const {
-            'messageId': 'preview-message-2',
-            'sender': '人事部 <hr@example.com>',
-          },
-        ),
-      ];
 }
