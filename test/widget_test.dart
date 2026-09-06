@@ -23,7 +23,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('バキる'), findsOneWidget);
+    expect(find.bySemanticsLabel('バキる'), findsOneWidget);
     expect(find.bySemanticsLabel('写真'), findsOneWidget);
     expect(find.bySemanticsLabel('メール'), findsOneWidget);
     expect(find.bySemanticsLabel('ゴミ箱'), findsOneWidget);
