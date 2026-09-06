@@ -80,7 +80,8 @@ class _ShatterPageState extends State<ShatterPage>
                       padding: const EdgeInsets.only(bottom: 18),
                       child: Text(
                         'バーン',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(
                               color: const Color(0xfff04d54),
                               fontWeight: FontWeight.w900,
                             ),
@@ -99,7 +100,6 @@ class _ShatterPageState extends State<ShatterPage>
       ),
     );
   }
-
 }
 
 class _GlassScreen extends StatelessWidget {
@@ -124,7 +124,11 @@ class _GlassScreen extends StatelessWidget {
           border: Border.all(color: const Color(0xff252525), width: 3),
           borderRadius: BorderRadius.circular(8),
           boxShadow: const [
-            BoxShadow(color: Color(0x22000000), blurRadius: 18, offset: Offset(0, 8)),
+            BoxShadow(
+              color: Color(0x22000000),
+              blurRadius: 18,
+              offset: Offset(0, 8),
+            ),
           ],
         ),
         child: Stack(
@@ -135,7 +139,11 @@ class _GlassScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(_iconFor(item.type), size: 54, color: const Color(0xff252525)),
+                  Icon(
+                    _iconFor(item.type),
+                    size: 54,
+                    color: const Color(0xff252525),
+                  ),
                   const SizedBox(height: 14),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -144,8 +152,8 @@ class _GlassScreen extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -153,9 +161,9 @@ class _GlassScreen extends StatelessWidget {
                   Text(
                     isBroken ? 'バキッ!' : 'バキる',
                     style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                          color: const Color(0xfff04d54),
-                          fontWeight: FontWeight.w900,
-                        ),
+                      color: const Color(0xfff04d54),
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ],
               ),
@@ -173,10 +181,10 @@ class _GlassScreen extends StatelessWidget {
   }
 
   IconData _iconFor(TrashItemType type) => switch (type) {
-        TrashItemType.photo => Icons.photo_outlined,
-        TrashItemType.mail => Icons.mail_outline,
-        TrashItemType.text => Icons.link,
-      };
+    TrashItemType.photo => Icons.photo_outlined,
+    TrashItemType.mail => Icons.mail_outline,
+    TrashItemType.text => Icons.link,
+  };
 }
 
 class _ScreenDividers extends StatelessWidget {
@@ -184,14 +192,14 @@ class _ScreenDividers extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Column(
-        children: [
-          Spacer(flex: 2),
-          Divider(color: Color(0xff252525), height: 1, thickness: 2),
-          Spacer(flex: 5),
-          Divider(color: Color(0xff252525), height: 1, thickness: 2),
-          Spacer(flex: 2),
-        ],
-      );
+    children: [
+      Spacer(flex: 2),
+      Divider(color: Color(0xff252525), height: 1, thickness: 2),
+      Spacer(flex: 5),
+      Divider(color: Color(0xff252525), height: 1, thickness: 2),
+      Spacer(flex: 2),
+    ],
+  );
 }
 
 class _CrackPainter extends CustomPainter {
@@ -219,8 +227,12 @@ class _CrackPainter extends CustomPainter {
     ];
 
     for (var index = 0; index < endpoints.length; index++) {
-      final end = Offset(endpoints[index].dx * size.width, endpoints[index].dy * size.height);
-      final bend = Offset.lerp(center, end, .45)! +
+      final end = Offset(
+        endpoints[index].dx * size.width,
+        endpoints[index].dy * size.height,
+      );
+      final bend =
+          Offset.lerp(center, end, .45)! +
           Offset(index.isEven ? 12 : -12, index.isEven ? -8 : 8);
       final visibleEnd = Offset.lerp(center, end, progress)!;
       final visibleBend = Offset.lerp(center, bend, progress)!;
