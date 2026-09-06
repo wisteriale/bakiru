@@ -12,7 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('ごみ箱の項目から叩き割る画面へ進める', (tester) async {
+  testWidgets('ごみ箱の項目から遺言入力を経て叩き割る画面へ進める', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -23,9 +23,22 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('バキる'), findsOneWidget);
+    expect(find.bySemanticsLabel('写真'), findsOneWidget);
+    expect(find.bySemanticsLabel('メール'), findsOneWidget);
+    expect(find.bySemanticsLabel('ゴミ箱'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('ゴミ箱'));
+    await tester.pumpAndSettle();
+
     expect(find.text('思い出の写真'), findsOneWidget);
 
     await tester.tap(find.text('思い出の写真'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('遺言を残す'), findsOneWidget);
+
+    await tester.tap(find.text('言葉を残さず進む'));
     await tester.pumpAndSettle();
 
     expect(find.text('叩き割る'), findsOneWidget);
